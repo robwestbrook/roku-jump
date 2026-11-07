@@ -1,0 +1,9 @@
+# Photos of the TV's channel lineup (source material, kept outside the repo)
+roku-photos/
+/mnt/xdrive/roku-photos/
+
+# Runtime files
+state.json
+server.log
+__pycache__/
+*.pyc

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Roku Jump</title>
+<style>
+:root{--bg:#f4f1fa;--fg:#1d1530;--card:#fff;--ac:#6c2bd9;--mut:#6b6380;--bd:#d9d2ea;--ok:#157347;--bad:#b42318}
+@media (prefers-color-scheme:dark){:root{--bg:#16111f;--fg:#efeaf9;--card:#221a33;--ac:#a77bff;--mut:#9f94b8;--bd:#3a2f55;--ok:#5fd08e;--bad:#ff8a80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.4 system-ui,sans-serif;padding:16px;max-width:520px;margin-inline:auto}
+h1{font-size:1.2rem;margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:14px}
+label{display:block;color:var(--mut);font-size:.85rem;margin-bottom:4px}
+input[type=text],input[type=tel],input[type=search]{width:100%;font-size:1.5rem;padding:10px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--fg)}
+button{font-size:1.1rem;padding:12px 16px;border-radius:10px;border:0;background:var(--ac);color:#fff;font-weight:600}
+button.sec{background:transparent;color:var(--ac);border:1px solid var(--ac)}
+button:disabled{opacity:.5}
+.row{display:flex;gap:10px;align-items:end}
+.row>*{flex:1}.row>button{flex:0 0 auto}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:8px 12px;border-radius:999px;border:1px solid var(--bd);background:var(--bg);color:var(--fg);font-size:.95rem}
+#status{min-height:1.5em;font-weight:600}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+ul{list-style:none;margin:8px 0 0;padding:0}
+li{padding:10px 4px;border-bottom:1px solid var(--bd);display:flex;gap:12px}
+li b{min-width:3.2em}
+.mut{color:var(--mut);font-size:.9rem}
+</style></head><body>
+<h1>Roku Jump</h1>
+
+<div class="card">
+  <label for="n">Go to channel number</label>
+  <div class="row">
+    <input id="n" type="tel" inputmode="numeric" pattern="[0-9]*" placeholder="e.g. 450" autocomplete="off">
+    <button id="go">Go</button>
+  </div>
+  <p id="status" class="mut">Ready.</p>
+  <label class="mut"><input type="checkbox" id="open" checked> Open the guide first (uncheck if the guide is already on screen)</label>
+</div>
+
+<div class="card">
+  <label>Recent</label>
+  <div id="recent" class="chips"><span class="mut">None yet.</span></div>
+</div>
+
+<div class="card">
+  <label for="q">Find by name</label>
+  <input id="q" type="search" placeholder="e.g. weather" autocomplete="off">
+  <ul id="results"></ul>
+</div>
+
+<div class="card">
+  <label for="cur">The TV is on channel</label>
+  <div class="row">
+    <input id="cur" type="tel" inputmode="numeric" pattern="[0-9]*" placeholder="not set">
+    <button class="sec" id="setcur">Set</button>
+  </div>
+  <p class="mut">Update this if you change channels with the remote.</p>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let lineup=[], busy=false;
+function say(t,c){const s=$('status');s.textContent=t;s.className=c||'mut'}
+async function post(path){const r=await fetch(path,{method:'POST'});const j=await r.json();if(!r.ok)throw new Error(j.error||'Error');return j}
+function nameOf(n){const c=lineup.find(x=>x.number===n);return c?c.name:''}
+function renderRecent(list){
+  const el=$('recent');el.innerHTML='';
+  if(!list.length){el.innerHTML='<span class="mut">None yet.</span>';return}
+  list.forEach(n=>{const b=document.createElement('button');b.className='chip';b.textContent=n+' '+nameOf(n);b.onclick=()=>go(n);el.appendChild(b)})
+}
+async function refresh(){
+  const s=await (await fetch('/state')).json();
+  if(s.current!=null)$('cur').value=s.current;
+  renderRecent(s.recent||[]);
+  busy=s.busy;$('go').disabled=busy;
+  return s;
+}
+async function go(n){
+  try{
+    $('n').value=n;
+    await post('/go?n='+n+'&open='+($('open').checked?1:0));
+    say('Starting...');
+    poll();
+  }catch(e){say(e.message,'bad')}
+}
+async function poll(){
+  const s=await (await fetch('/status')).json();
+  $('go').disabled=s.busy;
+  say(s.msg,s.msg.startsWith('Failed')?'bad':(s.msg.startsWith('Done')?'ok':'mut'));
+  if(s.busy)setTimeout(poll,700);else refresh();
+}
+$('go').onclick=()=>{const n=parseInt($('n').value,10);if(!n)return say('Enter a channel number.','bad');go(n)};
+$('n').addEventListener('keydown',e=>{if(e.key==='Enter')$('go').click()});
+$('setcur').onclick=async()=>{try{await post('/setcurrent?n='+parseInt($('cur').value,10));say('Current channel saved.','ok')}catch(e){say(e.message,'bad')}};
+$('q').oninput=()=>{
+  const t=$('q').value.trim().toLowerCase();const ul=$('results');ul.innerHTML='';
+  if(t.length<2)return;
+  lineup.filter(c=>c.name.toLowerCase().includes(t)).slice(0,25).forEach(c=>{
+    const li=document.createElement('li');li.innerHTML='<b>'+c.number+'</b><span></span>';li.lastChild.textContent=c.name;
+    li.onclick=()=>go(c.number);ul.appendChild(li)})
+};
+(async()=>{lineup=await (await fetch('/lineup.json')).json();const s=await refresh();if(s.busy)poll()})();
+</script>
+</body></html>
