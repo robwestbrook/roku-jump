@@ -63,3 +63,7 @@ rejects button presses with HTTP 403.
   lineup and opening sequence.
 - The lineup is a snapshot. If Roku adds or removes channels, rows shift and jumps
   drift; re-verify with spot checks.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
