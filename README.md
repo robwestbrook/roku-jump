@@ -22,6 +22,30 @@ Settings > System > Advanced system settings > Control by mobile apps >
 Network access must be **Permissive** (or Default). In "Limited" mode the TV
 rejects button presses with HTTP 403.
 
+## Run on a Raspberry Pi or home server
+
+The server is standard-library Python and only talks to the TV and your phone over
+HTTP, so any always-on Linux machine on the same network works, including a Raspberry
+Pi. That keeps it available without leaving a desktop computer on.
+
+1. Clone the repo onto the machine and check that `python3 server.py` works.
+2. Give the TV a fixed address: reserve it in your router's DHCP settings, or the
+   jumper will lose it when the address changes. Set `TV_IP` to that address.
+3. Install the service so it starts at boot and restarts if it stops. Edit the user,
+   paths and `TV_IP` in [`deploy/roku-jump.service`](deploy/roku-jump.service), then:
+
+       sudo cp deploy/roku-jump.service /etc/systemd/system/
+       sudo systemctl daemon-reload
+       sudo systemctl enable --now roku-jump
+
+4. Open `http://<machine-address>:8766` on your phone. Reserving the machine's address
+   (or using its `.local` name) keeps the bookmark working. On the first run, set the
+   current channel once on the page.
+
+**Security:** the page has no password. Anyone on your home network can change the
+channel. Do not expose the port to the internet; if you need remote access, use a VPN
+such as Tailscale.
+
 ## How it works
 
 - Sends keys over Roku's External Control Protocol (`POST http://<tv>:8060/keypress/<Key>`).

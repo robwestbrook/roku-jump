@@ -1,0 +1,26 @@
+# systemd unit for running Roku Jump on a Raspberry Pi or other Linux home server.
+#
+# Install:
+#   1. Edit User, WorkingDirectory, ExecStart and TV_IP below.
+#   2. sudo cp deploy/roku-jump.service /etc/systemd/system/
+#   3. sudo systemctl daemon-reload
+#   4. sudo systemctl enable --now roku-jump
+#
+# Check it:   systemctl status roku-jump      Logs:  journalctl -u roku-jump -f
+
+[Unit]
+Description=Roku Jump (channel-number navigation for Roku Live TV)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/roku-jump
+ExecStart=/usr/bin/python3 -I /home/pi/roku-jump/server.py
+Environment=TV_IP=192.168.1.146
+Environment=PORT=8766
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
